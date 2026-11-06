@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Transporte y Cargas Pro (Google Sheets)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS (xlsx) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Inter', sans-serif; }</style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 flex flex-col justify-between">
+
+    <!-- Header -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 p-2.5 rounded-xl text-white shadow-inner">
+                    <i class="fa-solid fa-truck-ramp-box text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight">Gestión de Cargas y Transportes</h1>
+                    <p class="text-xs text-slate-400">Sincronización automática con Google Sheets</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <span id="roleBadge" class="px-3 py-1 text-xs font-semibold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    <i class="fa-solid fa-user text-[10px] mr-1"></i> Modo Usuario (Carga libre)
+                </span>
+                
+                <button onclick="toggleAdminModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-lock text-amber-400"></i> <span id="adminBtnText">Acceso Admin</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6 space-y-6 flex-grow w-full">
+
+        <!-- Métricas Principales -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Registros</p>
+                    <h3 id="statTotalItems" class="text-2xl font-bold text-slate-900 mt-1">0</h3>
+                </div>
+                <div class="bg-blue-50 text-blue-600 p-3 rounded-lg"><i class="fa-solid fa-clipboard-list text-lg"></i></div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Peso Total Acumulado</p>
+                    <h3 id="statTotalPeso" class="text-2xl font-bold text-slate-900 mt-1">0 kg</h3>
+                </div>
+                <div class="bg-emerald-50 text-emerald-600 p-3 rounded-lg"><i class="fa-solid fa-weight-scale text-lg"></i></div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Clientes Únicos</p>
+                    <h3 id="statTotalClientes" class="text-2xl font-bold text-slate-900 mt-1">0</h3>
+                </div>
+                <div class="bg-indigo-50 text-indigo-600 p-3 rounded-lg"><i class="fa-solid fa-building text-lg"></i></div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Importe Total Acumulado</p>
+                    <h3 id="statTotalImporte" class="text-2xl font-bold text-slate-900 mt-1">0.00 €</h3>
+                </div>
+                <div class="bg-amber-50 text-amber-600 p-3 rounded-lg"><i class="fa-solid fa-euro-sign text-lg"></i></div>
+            </div>
+        </div>
+
+        <!-- Formulario de Registro -->
+        <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="bg-slate-100 px-5 py-3 border-b border-slate-200 flex justify-between items-center">
+                <h2 class="font-semibold text-slate-700 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-circle-plus text-blue-600"></i> Nuevo Registro de Carga
+                </h2>
+                <span class="text-xs text-slate-500">Se sincroniza automáticamente con la nube</span>
+            </div>
+            
+            <form id="recordForm" onsubmit="handleAddRecord(event)" class="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Cliente / Empresa *</label>
+                    <input type="text" id="cliente" required placeholder="Ej: Transportes Galicia S.L." class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Concepto / Descripción *</label>
+                    <input type="text" id="concepto" required placeholder="Ej: Mercancía paletizada" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Origen *</label>
+                    <input type="text" id="origen" required placeholder="Ej: Ourense" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Destino *</label>
+                    <input type="text" id="destino" required placeholder="Ej: Madrid" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Peso (kg) *</label>
+                    <input type="number" step="0.01" id="peso" required placeholder="Ej: 1250.50" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Precio Unitario (€) <span class="text-slate-400 font-normal">(Opcional)</span></label>
+                    <input type="number" step="0.01" id="precioUnitario" placeholder="Ej: 0.45" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Fecha *</label>
+                    <input type="date" id="fecha" required class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+
+                <div class="flex items-end">
+                    <button type="submit" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition shadow-sm flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-plus"></i> Añadir Registro
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Tabla y Controles -->
+        <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-4 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <div class="relative w-full sm:w-72">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                            <i class="fa-solid fa-search text-xs"></i>
+                        </span>
+                        <input type="text" id="searchInput" oninput="renderTable()" placeholder="Buscar por cliente, origen, destino..." class="w-full text-sm pl-9 pr-4 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <button onclick="loadRecordsFromCloud()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium py-2 px-3 rounded-lg transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-rotate"></i> Actualizar Datos
+                    </button>
+                    <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium py-2 px-3.5 rounded-lg transition flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-file-excel"></i> Descargar Excel Local
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
+                            <th class="p-3">#</th>
+                            <th class="p-3">Cliente / Empresa</th>
+                            <th class="p-3">Concepto</th>
+                            <th class="p-3">Origen</th>
+                            <th class="p-3">Destino</th>
+                            <th class="p-3 text-right">Peso (kg)</th>
+                            <th class="p-3 text-right">Precio Unit. (€)</th>
+                            <th class="p-3 text-right">Total (€)</th>
+                            <th class="p-3">Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100 text-sm text-slate-700"></tbody>
+                </table>
+            </div>
+
+            <div id="emptyState" class="hidden p-12 text-center text-slate-400">
+                <i class="fa-solid fa-box-open text-3xl mb-2"></i>
+                <p class="text-sm">No hay registros guardados todavía.</p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal Admin -->
+    <div id="adminModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4 border border-slate-100">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-shield-halved text-amber-500"></i> Panel de Administrador
+                </h3>
+                <button onclick="toggleAdminModal()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <div id="loginView" class="space-y-3">
+                <p class="text-xs text-slate-500">Introduce la contraseña de administrador (Clave por defecto: <span class="font-mono font-semibold text-slate-700">1245</span>).</p>
+                <input type="password" id="adminPasswordInput" placeholder="Contraseña..." class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <div class="flex gap-2 pt-2">
+                    <button onclick="verifyAdmin()" class="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium py-2 rounded-lg transition">Iniciar Sesión</button>
+                </div>
+            </div>
+
+            <div id="adminOptionsView" class="hidden space-y-3">
+                <p class="text-xs text-emerald-600 font-medium bg-emerald-50 p-2 rounded border border-emerald-200">
+                    <i class="fa-solid fa-circle-check mr-1"></i> Sesión de Administrador activa.
+                </p>
+                <div class="space-y-2 pt-2 border-t border-slate-100">
+                    <label class="block text-xs font-semibold text-slate-600">Cambiar Contraseña Admin</label>
+                    <input type="password" id="newPasswordInput" placeholder="Nueva clave..." class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <button onclick="changePassword()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium py-2 rounded-lg transition">Actualizar Clave</button>
+                </div>
+                <button onclick="logoutAdmin()" class="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-medium py-2 rounded-lg transition mt-4">Cerrar Sesión Admin</button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-white border-t border-slate-200 py-4 mt-8 text-center text-xs text-slate-400">
+        Control de Cargas Cloud &copy; 2026
+    </footer>
+
+    <!-- Script con conexión a Google Sheets -->
+    <script>
+        // URL DE GOOGLE APPS SCRIPT CONFIGURADA:
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx1RBeshzxUYe864GUitCg3OFqtjnHqGQHK4pjM142YVU_zvpxNQ46C2jvPLrEgVZWl/exec";
+
+        let records = [];
+        let isAdmin = localStorage.getItem('transport_is_admin') === 'true';
+        let adminPass = localStorage.getItem('transport_admin_pass') || '1245';
+
+        document.getElementById('fecha').valueAsDate = new Date();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            updateRoleUI();
+            loadRecordsFromCloud();
+        });
+
+        async function loadRecordsFromCloud() {
+            if (!WEB_APP_URL || WEB_APP_URL.includes("TU_URL")) {
+                records = JSON.parse(localStorage.getItem('transport_records')) || [];
+                renderTable();
+                return;
+            }
+
+            try {
+                const response = await fetch(WEB_APP_URL);
+                const data = await response.json();
+                records = data;
+                renderTable();
+            } catch (error) {
+                console.error("Error al cargar desde Google Sheets:", error);
+                records = JSON.parse(localStorage.getItem('transport_records')) || [];
+                renderTable();
+            }
+        }
+
+        async function handleAddRecord(e) {
+            e.preventDefault();
+            const cliente = document.getElementById('cliente').value.trim();
+            const concepto = document.getElementById('concepto').value.trim();
+            const origen = document.getElementById('origen').value.trim();
+            const destino = document.getElementById('destino').value.trim();
+            const peso = parseFloat(document.getElementById('peso').value);
+            const precioUnitarioVal = document.getElementById('precioUnitario').value.trim();
+            const precioUnitario = precioUnitarioVal !== '' ? parseFloat(precioUnitarioVal) : null;
+            const fecha = document.getElementById('fecha').value;
+
+            const newRecord = {
+                id: Date.now().toString(),
+                cliente,
+                concepto,
+                origen,
+                destino,
+                peso,
+                precioUnitario,
+                importeTotal: precioUnitario !== null ? peso * precioUnitario : null,
+                fecha
+            };
+
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando en nube...';
+
+            if (WEB_APP_URL && !WEB_APP_URL.includes("TU_URL")) {
+                try {
+                    await fetch(WEB_APP_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newRecord)
+                    });
+                } catch (error) {
+                    console.error("Error al enviar a la nube:", error);
+                }
+            }
+
+            records.push(newRecord);
+            localStorage.setItem('transport_records', JSON.stringify(records));
+            
+            renderTable();
+            document.getElementById('recordForm').reset();
+            document.getElementById('fecha').valueAsDate = new Date();
+            
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Añadir Registro';
+            alert('¡Registro guardado correctamente en Google Sheets!');
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            const emptyState = document.getElementById('emptyState');
+            const searchFilter = document.getElementById('searchInput').value.toLowerCase();
+
+            tbody.innerHTML = '';
+
+            const filteredRecords = records.filter(r => 
+                (r.cliente && r.cliente.toLowerCase().includes(searchFilter)) ||
+                (r.concepto && r.concepto.toLowerCase().includes(searchFilter)) ||
+                (r.origen && r.origen.toLowerCase().includes(searchFilter)) ||
+                (r.destino && r.destino.toLowerCase().includes(searchFilter))
+            );
+
+            document.getElementById('statTotalItems').innerText = records.length;
+            const totalPeso = records.reduce((acc, curr) => acc + (parseFloat(curr.peso) || 0), 0);
+            document.getElementById('statTotalPeso').innerText = totalPeso.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' kg';
+            
+            const uniqueClients = [...new Set(records.map(r => r.cliente))];
+            document.getElementById('statTotalClientes').innerText = uniqueClients.length;
+
+            const totalImporte = records.reduce((acc, curr) => acc + (parseFloat(curr.importeTotal) || 0), 0);
+            document.getElementById('statTotalImporte').innerText = totalImporte.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+
+            if (filteredRecords.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            filteredRecords.forEach((r, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50/80 transition border-b border-slate-100 text-xs";
+                
+                const pUnit = r.precioUnitario !== null && r.precioUnitario !== "" ? parseFloat(r.precioUnitario).toFixed(2) + ' €' : '<span class="text-slate-400">N/A</span>';
+                const tImp = r.importeTotal !== null && r.importeTotal !== "" ? parseFloat(r.importeTotal).toFixed(2) + ' €' : '<span class="text-slate-400">N/A</span>';
+
+                tr.innerHTML = `
+                    <td class="p-3 text-slate-400">${index + 1}</td>
+                    <td class="p-3 font-semibold text-slate-900">${r.cliente || ''}</td>
+                    <td class="p-3">${r.concepto || ''}</td>
+                    <td class="p-3">${r.origen || ''}</td>
+                    <td class="p-3">${r.destino || ''}</td>
+                    <td class="p-3 text-right font-mono">${parseFloat(r.peso || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}</td>
+                    <td class="p-3 text-right font-mono">${pUnit}</td>
+                    <td class="p-3 text-right font-mono font-medium text-blue-600">${tImp}</td>
+                    <td class="p-3">${r.fecha || ''}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function toggleAdminModal() {
+            const modal = document.getElementById('adminModal');
+            modal.classList.toggle('hidden');
+            if (!modal.classList.contains('hidden')) {
+                if (isAdmin) {
+                    document.getElementById('loginView').classList.add('hidden');
+                    document.getElementById('adminOptionsView').classList.remove('hidden');
+                } else {
+                    document.getElementById('loginView').classList.remove('hidden');
+                    document.getElementById('adminOptionsView').classList.add('hidden');
+                    document.getElementById('adminPasswordInput').value = '';
+                }
+            }
+        }
+
+        function verifyAdmin() {
+            const pass = document.getElementById('adminPasswordInput').value;
+            if (pass === adminPass) {
+                isAdmin = true;
+                localStorage.setItem('transport_is_admin', 'true');
+                toggleAdminModal();
+                updateRoleUI();
+                alert('¡Acceso de Administrador concedido!');
+            } else {
+                alert('Contraseña incorrecta.');
+            }
+        }
+
+        function logoutAdmin() {
+            isAdmin = false;
+            localStorage.setItem('transport_is_admin', 'false');
+            toggleAdminModal();
+            updateRoleUI();
+        }
+
+        function changePassword() {
+            const newPass = document.getElementById('newPasswordInput').value.trim();
+            if (newPass.length < 3) {
+                alert('La contraseña debe tener al menos 3 caracteres.');
+                return;
+            }
+            adminPass = newPass;
+            localStorage.setItem('transport_admin_pass', adminPass);
+            document.getElementById('newPasswordInput').value = '';
+            alert('Contraseña de administrador actualizada.');
+        }
+
+        function updateRoleUI() {
+            const badge = document.getElementById('roleBadge');
+            const adminBtnText = document.getElementById('adminBtnText');
+
+            if (isAdmin) {
+                badge.className = "px-3 py-1 text-xs font-semibold rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30";
+                badge.innerHTML = '<i class="fa-solid fa-shield-halved text-[10px] mr-1"></i> Modo Administrador';
+                adminBtnText.innerText = 'Panel Admin';
+            } else {
+                badge.className = "px-3 py-1 text-xs font-semibold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+                badge.innerHTML = '<i class="fa-solid fa-user text-[10px] mr-1"></i> Modo Usuario (Carga libre)';
+                adminBtnText.innerText = 'Acceso Admin';
+            }
+        }
+
+        function exportToExcel() {
+            if (records.length === 0) {
+                alert('No hay registros para exportar.');
+                return;
+            }
+
+            const wb = XLSX.utils.book_new();
+
+            const generalData = records.map((r, i) => ({
+                "N°": i + 1,
+                "Cliente / Empresa": r.cliente,
+                "Concepto / Descripción": r.concepto,
+                "Origen": r.origen,
+                "Destino": r.destino,
+                "Peso (kg)": parseFloat(r.peso) || 0,
+                "Precio Unitario (€)": r.precioUnitario !== null && r.precioUnitario !== "" ? parseFloat(r.precioUnitario) : "N/A",
+                "Importe Total (€)": r.importeTotal !== null && r.importeTotal !== "" ? parseFloat(r.importeTotal) : "N/A",
+                "Fecha": r.fecha
+            }));
+            const wsGeneral = XLSX.utils.json_to_sheet(generalData);
+            XLSX.utils.book_append_sheet(wb, wsGeneral, "Todos los Registros");
+
+            const clients = [...new Set(records.map(r => r.cliente))];
+            clients.forEach(client => {
+                const clientRecords = records.filter(r => r.cliente === client);
+                const clientData = clientRecords.map((r, i) => ({
+                    "N°": i + 1,
+                    "Concepto / Descripción": r.concepto,
+                    "Origen": r.origen,
+                    "Destino": r.destino,
+                    "Peso (kg)": parseFloat(r.peso) || 0,
+                    "Precio Unitario (€)": r.precioUnitario !== null && r.precioUnitario !== "" ? parseFloat(r.precioUnitario) : "N/A",
+                    "Importe Total (€)": r.importeTotal !== null && r.importeTotal !== "" ? parseFloat(r.importeTotal) : "N/A",
+                    "Fecha": r.fecha
+                }));
+
+                const totalPesoClient = clientRecords.reduce((acc, curr) => acc + (parseFloat(curr.peso) || 0), 0);
+                const totalImporteClient = clientRecords.reduce((acc, curr) => acc + (parseFloat(curr.importeTotal) || 0), 0);
+                clientData.push({
+                    "N°": "",
+                    "Concepto / Descripción": "TOTALES:",
+                    "Origen": "",
+                    "Destino": "",
+                    "Peso (kg)": totalPesoClient,
+                    "Precio Unitario (€)": "",
+                    "Importe Total (€)": totalImporteClient,
+                    "Fecha": ""
+                });
+
+                const wsClient = XLSX.utils.json_to_sheet(clientData);
+                const safeSheetName = (client || "Cliente").substring(0, 31).replace(/[:\\/?*\[\]]/g, "");
+                XLSX.utils.book_append_sheet(wb, wsClient, safeSheetName);
+            });
+
+            const fechaStr = new Date().toISOString().slice(0, 10);
+            XLSX.writeFile(wb, `Control_Transportes_Cloud_${fechaStr}.xlsx`);
+        }
+    </script>
+</body>
+</html>
