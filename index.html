@@ -40,41 +40,6 @@
 
     <main class="max-w-7xl mx-auto px-4 py-6 space-y-6 flex-grow w-full">
 
-        <!-- Métricas Principales -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Registros</p>
-                    <h3 id="statTotalItems" class="text-2xl font-bold text-slate-900 mt-1">0</h3>
-                </div>
-                <div class="bg-blue-50 text-blue-600 p-3 rounded-lg"><i class="fa-solid fa-clipboard-list text-lg"></i></div>
-            </div>
-
-            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Peso Total Acumulado</p>
-                    <h3 id="statTotalPeso" class="text-2xl font-bold text-slate-900 mt-1">0 kg</h3>
-                </div>
-                <div class="bg-emerald-50 text-emerald-600 p-3 rounded-lg"><i class="fa-solid fa-weight-scale text-lg"></i></div>
-            </div>
-
-            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Clientes Únicos</p>
-                    <h3 id="statTotalClientes" class="text-2xl font-bold text-slate-900 mt-1">0</h3>
-                </div>
-                <div class="bg-indigo-50 text-indigo-600 p-3 rounded-lg"><i class="fa-solid fa-building text-lg"></i></div>
-            </div>
-
-            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Importe Total Acumulado</p>
-                    <h3 id="statTotalImporte" class="text-2xl font-bold text-slate-900 mt-1">0.00 €</h3>
-                </div>
-                <div class="bg-amber-50 text-amber-600 p-3 rounded-lg"><i class="fa-solid fa-euro-sign text-lg"></i></div>
-            </div>
-        </div>
-
         <!-- Formulario de Registro -->
         <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div class="bg-slate-100 px-5 py-3 border-b border-slate-200 flex justify-between items-center">
@@ -299,16 +264,6 @@
                 (r.origen && r.origen.toLowerCase().includes(searchFilter)) ||
                 (r.destino && r.destino.toLowerCase().includes(searchFilter))
             );
-
-            document.getElementById('statTotalItems').innerText = records.length;
-            const totalPeso = records.reduce((acc, curr) => acc + (parseFloat(curr.peso) || 0), 0);
-            document.getElementById('statTotalPeso').innerText = totalPeso.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' kg';
-            
-            const uniqueClients = [...new Set(records.map(r => r.cliente))];
-            document.getElementById('statTotalClientes').innerText = uniqueClients.length;
-
-            const totalImporte = records.reduce((acc, curr) => acc + (parseFloat(curr.importeTotal) || 0), 0);
-            document.getElementById('statTotalImporte').innerText = totalImporte.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 
             if (filteredRecords.length === 0) {
                 emptyState.classList.remove('hidden');
