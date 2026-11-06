@@ -6,8 +6,6 @@
     <title>Control de Transporte y Cargas Pro (Google Sheets)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- SheetJS (xlsx) -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -146,9 +144,6 @@
                     <button onclick="loadRecordsFromCloud()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium py-2 px-3 rounded-lg transition flex items-center gap-1.5">
                         <i class="fa-solid fa-rotate"></i> Actualizar Datos
                     </button>
-                    <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium py-2 px-3.5 rounded-lg transition flex items-center gap-1.5 shadow-sm">
-                        <i class="fa-solid fa-file-excel"></i> Descargar Excel Local
-                    </button>
                 </div>
             </div>
 
@@ -217,12 +212,12 @@
         Control de Cargas Cloud &copy; 2026
     </footer>
 
-    <!-- Script con conexión a Google Sheets -->
+    <!-- Script de la aplicación -->
     <script>
         // URL DE GOOGLE APPS SCRIPT CONFIGURADA:
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx_zpFsz1ETcfHloBQQG0nOvmCTqrmqwyjyrc5Z2TNTCM4RAwXc3IohguE-AkaFoWVZ1g/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx_zpFsz1ETcfHloBQQg8novmCTqrmqwyjyrc5Z2TNTCM4RAmXc3IohguE-AkaFowWZ1g/exec";
 
-        let records = [];
+        let records = JSON.parse(localStorage.getItem('transport_records')) || [];
         let isAdmin = localStorage.getItem('transport_is_admin') === 'true';
         let adminPass = localStorage.getItem('transport_admin_pass') || '1245';
 
@@ -230,26 +225,13 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             updateRoleUI();
-            loadRecordsFromCloud();
+            renderTable();
         });
 
-        async function loadRecordsFromCloud() {
-            if (!WEB_APP_URL || WEB_APP_URL.includes("TU_URL")) {
-                records = JSON.parse(localStorage.getItem('transport_records')) || [];
-                renderTable();
-                return;
-            }
-
-            try {
-                const response = await fetch(WEB_APP_URL);
-                const data = await response.json();
-                records = data;
-                renderTable();
-            } catch (error) {
-                console.error("Error al cargar desde Google Sheets:", error);
-                records = JSON.parse(localStorage.getItem('transport_records')) || [];
-                renderTable();
-            }
+        function loadRecordsFromCloud() {
+            records = JSON.parse(localStorage.getItem('transport_records')) || [];
+            renderTable();
+            alert('Datos actualizados desde la memoria local.');
         }
 
         async function handleAddRecord(e) {
@@ -277,7 +259,7 @@
 
             const submitBtn = document.getElementById('submitBtn');
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando en nube...';
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
 
             if (WEB_APP_URL && !WEB_APP_URL.includes("TU_URL")) {
                 try {
@@ -301,7 +283,7 @@
             
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Añadir Registro';
-            alert('¡Registro guardado correctamente en Google Sheets!');
+            alert('¡Registro guardado correctamente y enviado a Google Sheets!');
         }
 
         function renderTable() {
@@ -417,64 +399,6 @@
                 badge.innerHTML = '<i class="fa-solid fa-user text-[10px] mr-1"></i> Modo Usuario (Carga libre)';
                 adminBtnText.innerText = 'Acceso Admin';
             }
-        }
-
-        function exportToExcel() {
-            if (records.length === 0) {
-                alert('No hay registros para exportar.');
-                return;
-            }
-
-            const wb = XLSX.utils.book_new();
-
-            const generalData = records.map((r, i) => ({
-                "N°": i + 1,
-                "Cliente / Empresa": r.cliente,
-                "Concepto / Descripción": r.concepto,
-                "Origen": r.origen,
-                "Destino": r.destino,
-                "Peso (kg)": parseFloat(r.peso) || 0,
-                "Precio Unitario (€)": r.precioUnitario !== null && r.precioUnitario !== "" ? parseFloat(r.precioUnitario) : "N/A",
-                "Importe Total (€)": r.importeTotal !== null && r.importeTotal !== "" ? parseFloat(r.importeTotal) : "N/A",
-                "Fecha": r.fecha
-            }));
-            const wsGeneral = XLSX.utils.json_to_sheet(generalData);
-            XLSX.utils.book_append_sheet(wb, wsGeneral, "Todos los Registros");
-
-            const clients = [...new Set(records.map(r => r.cliente))];
-            clients.forEach(client => {
-                const clientRecords = records.filter(r => r.cliente === client);
-                const clientData = clientRecords.map((r, i) => ({
-                    "N°": i + 1,
-                    "Concepto / Descripción": r.concepto,
-                    "Origen": r.origen,
-                    "Destino": r.destino,
-                    "Peso (kg)": parseFloat(r.peso) || 0,
-                    "Precio Unitario (€)": r.precioUnitario !== null && r.precioUnitario !== "" ? parseFloat(r.precioUnitario) : "N/A",
-                    "Importe Total (€)": r.importeTotal !== null && r.importeTotal !== "" ? parseFloat(r.importeTotal) : "N/A",
-                    "Fecha": r.fecha
-                }));
-
-                const totalPesoClient = clientRecords.reduce((acc, curr) => acc + (parseFloat(curr.peso) || 0), 0);
-                const totalImporteClient = clientRecords.reduce((acc, curr) => acc + (parseFloat(curr.importeTotal) || 0), 0);
-                clientData.push({
-                    "N°": "",
-                    "Concepto / Descripción": "TOTALES:",
-                    "Origen": "",
-                    "Destino": "",
-                    "Peso (kg)": totalPesoClient,
-                    "Precio Unitario (€)": "",
-                    "Importe Total (€)": totalImporteClient,
-                    "Fecha": ""
-                });
-
-                const wsClient = XLSX.utils.json_to_sheet(clientData);
-                const safeSheetName = (client || "Cliente").substring(0, 31).replace(/[:\\/?*\[\]]/g, "");
-                XLSX.utils.book_append_sheet(wb, wsClient, safeSheetName);
-            });
-
-            const fechaStr = new Date().toISOString().slice(0, 10);
-            XLSX.writeFile(wb, `Control_Transportes_Cloud_${fechaStr}.xlsx`);
         }
     </script>
 </body>
